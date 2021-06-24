@@ -9,6 +9,9 @@
 #   include <stdio.h>
 #endif
 
+
+#include<cstdio>
+
 #include "unicode/utypes.h"
 #include "unicode/ucptrie.h"
 #include "unicode/utf.h"
@@ -159,7 +162,13 @@ ucptrie_getValueWidth(const UCPTrie *trie) {
 
 U_CAPI int32_t U_EXPORT2
 ucptrie_internalSmallIndex(const UCPTrie *trie, UChar32 c) {
+    bool debug = c == 4096 && trie->type == UCPTRIE_TYPE_SMALL && trie->valueWidth == UCPTRIE_VALUE_BITS_16;
+    if (debug)
+        printf("Small indexing %d %d %d\n", c, trie->type == UCPTRIE_TYPE_SMALL, trie->valueWidth == UCPTRIE_VALUE_BITS_16);
     int32_t i1 = c >> UCPTRIE_SHIFT_1;
+    if (debug)
+        printf("\t i1(%d) = %d >> %d\n", i1, c, UCPTRIE_SHIFT_1);
+
     if (trie->type == UCPTRIE_TYPE_FAST) {
         U_ASSERT(0xffff < c && c < trie->highStart);
         i1 += UCPTRIE_BMP_INDEX_LENGTH - UCPTRIE_OMITTED_BMP_INDEX_1_LENGTH;
@@ -167,8 +176,18 @@ ucptrie_internalSmallIndex(const UCPTrie *trie, UChar32 c) {
         U_ASSERT((uint32_t)c < (uint32_t)trie->highStart && trie->highStart > UCPTRIE_SMALL_LIMIT);
         i1 += UCPTRIE_SMALL_INDEX_LENGTH;
     }
+    if (debug)
+        printf("\t i1(%d) shift(%d) mask(%d) len(%d) SMALL_INDEX_LENGTH(%d)\n", i1, UCPTRIE_SHIFT_2, UCPTRIE_INDEX_2_MASK, trie->indexLength, UCPTRIE_SMALL_INDEX_LENGTH);
+
+    if (debug)
+        printf("\t i1(%d), index[i1](%d) suffix(%d)\n", i1, (int32_t)trie->index[i1] , ((c >> UCPTRIE_SHIFT_2) & UCPTRIE_INDEX_2_MASK));
+
+    int32_t blockIndex = (int32_t)trie->index[i1] + ((c >> UCPTRIE_SHIFT_2) & UCPTRIE_INDEX_2_MASK);
+    if (debug)
+        printf("\t i1(%d), len(%d), block(%d)\n", i1, trie->indexLength, blockIndex);
+
     int32_t i3Block = trie->index[
-        (int32_t)trie->index[i1] + ((c >> UCPTRIE_SHIFT_2) & UCPTRIE_INDEX_2_MASK)];
+        blockIndex];
     int32_t i3 = (c >> UCPTRIE_SHIFT_3) & UCPTRIE_INDEX_3_MASK;
     int32_t dataBlock;
     if ((i3Block & 0x8000) == 0) {
